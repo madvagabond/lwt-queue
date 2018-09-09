@@ -1,9 +1,0 @@
-B /home/sam/.opam/4.05.0/lib/bytes
-B /home/sam/.opam/4.05.0/lib/lwt
-B /home/sam/.opam/4.05.0/lib/result
-B ../_build/default/lib/.Lwt_queue.objs
-S /home/sam/.opam/4.05.0/lib/bytes
-S /home/sam/.opam/4.05.0/lib/lwt
-S /home/sam/.opam/4.05.0/lib/result
-S .
-FLG -w -40
