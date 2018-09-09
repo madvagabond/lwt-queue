@@ -1,0 +1,5 @@
+(library
+ ((name Lwt_queue)
+  (public_name lwt-queue)
+  (libraries  (lwt))
+  (synopsis "A simple buffered asynchronous queue")))

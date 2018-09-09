@@ -1,0 +1,10 @@
+(jbuild_version 1)
+(executable
+ ((name  test_queue)
+  (public_name test-queue)
+  (libraries  (alcotest-lwt lwt-queue))))
+
+(alias
+ ((name runtest)
+  (action (run ${exe:test_queue.exe} ))))
+  
