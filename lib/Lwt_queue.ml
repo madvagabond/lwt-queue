@@ -1,4 +1,4 @@
-open Lwt.Infix
+
 
 exception Queue_Closed
   
@@ -10,16 +10,41 @@ type 'a t = {
   
   writers: 'a Queue.t; 
   readers: 'a Lwt.u Queue.t;
-  budget: int
+  budget: int option;
+
 }
 
 
 
-let poll t =
 
+let is_closed t =
+  match t.state with
+  | Closed -> true
+  | _ -> false 
+
+
+
+
+
+let check_bounds t =
+
+  let check i =
+    (Queue.length t.writers) <= i
+  in
+
+  
+  match t.budget with
+  | Some b -> check b
+  | _ -> true
+
+
+        
+
+
+let poll t =
   match t.state with
   | Idle ->
-    let (p, r) = Lwt.wait () in
+    let (p, r) = Lwt.task () in
     t.state <- Polling; 
     Queue.push r t.readers;
     p
@@ -34,11 +59,14 @@ let poll t =
     if (Queue.is_empty t.writers) then (t.state <- Idle);
     Lwt.return p
 
-  | Closed when (Queue.is_empty t.writers)->
+  | Closed when (Queue.is_empty t.writers) ->
+    
     Lwt.fail Queue_Closed
 
   | Closed ->
     Queue.pop t.writers |> Lwt.return
+
+
 
 
 
@@ -52,22 +80,25 @@ let offer t a =
   | Idle ->
     Queue.push a t.writers;
     t.state <- Offering; 
-    Lwt.return true
+    true
 
-  | Offering when (Queue.length t.writers) >= t.budget ->
-    Lwt.return false
+
+  | Offering when check_bounds t ->
+    Queue.push a t.writers;
+    true
 
   | Offering ->
-    Queue.push a t.writers;
-    Lwt.return true
+    false
+
 
   | Polling ->
     let waiter = Queue.pop t.readers in
     Lwt.wakeup waiter a;
-    Lwt.return true
+    true
 
   | Closed ->
-    Lwt.return false 
+    false 
+
 
 
 
@@ -83,16 +114,18 @@ let rec put t a =
     t.state <- Offering; 
     Lwt.return_unit
 
-  | Offering when (Queue.length t.writers) >= t.budget ->
-    put t a
 
-  | Offering ->
+  | Offering when check_bounds t ->
     Queue.push a t.writers;
     Lwt.return_unit
 
+  | Offering ->
+    put t a
+
+
   | Polling ->
     let waiter = Queue.pop t.readers in
-    Lwt.wakeup waiter a;
+    Lwt.wakeup_later waiter a;
     Lwt.return_unit
 
   | Closed ->
@@ -101,67 +134,75 @@ let rec put t a =
 
 
 
-let is_closed t =
-  if (t.state = Closed) then true
-  else false
 
 
 let close t =
 
   let rec kill_polls () = 
     let w = Queue.pop t.readers in
-    Lwt.wakeup_exn w Queue_Closed;
+    Lwt.wakeup_later_exn w Queue_Closed;
 
     if (Queue.is_empty t.readers) then
-      Lwt.return_unit
+      ()
 
     else
       kill_polls ()
-
   in
-
+  
   match t.state with
   | Idle ->
     t.state <- Closed;
-    Lwt.return_unit
+    ()
 
   | Polling ->
     kill_polls () 
 
   | Offering ->
     t.state <- Closed;
-    Lwt.return_unit 
+    ()
 
-  | Closed -> Lwt.return_unit
+  | Closed -> ()
+                
+
+
+
+
+
+let bounded size =
+
+  let readers = Queue.create () in 
+  let writers = Queue.create () in
+
+  let state = Idle in
+  let budget = Some size in 
+  {budget; state; writers; readers}
+
+
+
+
+let unbounded () =
+  
+  let readers = Queue.create () in 
+  let writers = Queue.create () in
+  
+  let state = Idle in
+  let budget = None in
+
+  {
+    budget;
+    state;
+    writers;
+    readers
+  }
+
 
 
 
 
   
-let create ?max () =
-  
-  match max with
-  | Some budget ->
-    let readers = Queue.create () in 
-    let writers = Queue.create () in
-
-    let state = Idle in
-    {budget; writers; readers; state;}
-
-  | None ->
-
-    let readers = Queue.create () in 
-    let writers = Queue.create () in
-
-    let state = Idle in
-    let budget = max_int in
-
-    {budget; state; writers; readers}
-
-
-
-        
 let drain t =
+
+  let _ = close t in
   
   let rec aux l =
     let e = Queue.pop t.writers in

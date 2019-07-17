@@ -1,33 +1,33 @@
 exception Queue_Closed
-  
-type state = Polling | Offering | Idle | Closed
 
-type 'a t = {
-  mutable state : state;
-  writers : 'a Queue.t;
-  readers : 'a Lwt.u Queue.t;
-  budget : int;
-}
+type 'a t
 
 
 (** Popping the queue, throws Queue_Closed*)
 val poll: 'a t -> 'a Lwt.t
 
-(** Asynchronous push,  *)
-val offer: 'a t -> 'a ->  bool Lwt.t
+(** Asynchronous insertion*)
+val offer: 'a t -> 'a ->  bool 
 
-(** Retries until write is complete throws Queue_Closed *)
+(** Blocks until offer succeeds, may change to be fully nonblocking*)
 val put: 'a t -> 'a -> unit Lwt.t
 
 
+
+
+
 (** Shutdowns queue *)
-val close: 'a t -> unit Lwt.t
+val close: 'a t -> unit 
 
-
-(** Creates bounded queue is Pervasives.max_int by default *)
-val create: ?max:int -> unit -> 'a t
 
 (** Empties out queue elements to list*)
 val drain: 'a t -> 'a list Lwt.t
 
 val size: 'a t -> int
+
+
+val bounded: int -> 'a t
+
+val unbounded: unit -> 'a t
+
+val is_closed: 'a t -> bool 

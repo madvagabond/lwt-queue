@@ -2,18 +2,20 @@ open Lwt.Infix
 
 open Alcotest
 
+
+
 let poll_queue s () =
-  let queue = Lwt_queue.create () in
+  let queue = Lwt_queue.unbounded () in
 
   let p1 = Lwt_queue.poll queue in
   let p2 = Lwt_queue.poll queue in
 
 
-  Lwt_queue.offer queue 1 >>= fun _ ->
+  let _ = Lwt_queue.offer queue 1 in
   p1 >>= fun i -> 
   Alcotest.(check int) "ints are the same" i 1;
 
-  Lwt_queue.offer queue 2 >>= fun _ -> 
+  let _ = Lwt_queue.offer queue 2 in
   p2 >>= fun i ->
   Alcotest.(check int) "ints are the same" i 2 |> Lwt.return
 
@@ -21,10 +23,10 @@ let poll_queue s () =
 
 let test_close () =
   let f () = Lwt_main.run (
-    let queue = Lwt_queue.create () in 
-    Lwt_list.map_s (fun x -> Lwt_queue.offer queue x) [1; 2] >>= fun _ ->
-    Lwt_queue.close queue >>= fun _ -> 
-    Lwt_list.map_s (fun x -> Lwt_queue.poll queue) [1; 2] >>= fun _ ->
+    let queue = Lwt_queue.unbounded () in 
+    Lwt_list.map_s (fun x -> Lwt_queue.offer queue x |> Lwt.return ) [1; 2] >>= fun _ ->
+    let _ = Lwt_queue.close queue in
+    Lwt_list.map_s (fun _x -> Lwt_queue.poll queue) [1; 2] >>= fun _ ->
 
     Lwt_queue.poll queue >>= fun _ -> Lwt.return_unit
   )
@@ -39,19 +41,21 @@ let test_close () =
   
 
 
+
 let test_parallel s () =
-  let queue = Lwt_queue.create () in
+  let queue = Lwt_queue.unbounded () in
   let items = [1; 2; 3; 4; 5;] in
-  Lwt_list.map_p (fun x -> Lwt_queue.offer queue x)  items >>= fun _ ->
+  Lwt_list.map_p (fun x -> Lwt_queue.offer queue x |> Lwt.return) items >>= fun _ ->
 
-  Lwt_queue.drain queue >|= fun l ->
+  Lwt_queue.drain queue >|= fun list ->
 
-  let sorted = List.sort (fun l r -> compare l r) l in 
+  let sorted = List.sort (fun l r -> compare l r) list in 
 
   Alcotest.(check (list int) )
     "drain returns all the elements put in"
-    sorted
-    items;
+    items
+    list
+  ;
 
   let got = Lwt_queue.size queue in
   Alcotest.(check int) "size is zero" got 0

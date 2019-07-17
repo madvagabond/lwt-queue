@@ -8,10 +8,10 @@ dev-repo: ""
 bug-reports: ""
 doc: ""
 build: [
-  [ "jbuilder" "subst" ] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "subst" ] {pinned}
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build & >= "1.0"}
   "lwt"
 ]
